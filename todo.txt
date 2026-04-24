@@ -1,0 +1,5 @@
+1. Parse arguments provided on command line. Provide api.
+2. Short options, long options, options expected to be followed by some param (e.g. in `gcc -o main main.c`, `-o` is expected to be followed by some param, although it should be something like `gcc -o=main main.c`)
+3. utils: regex-handling maybe? String utilities, etc.
+4. Mapping between short and long options, automatic short options generator, normaliser (short and long options for the same things must be normalised into the same longOption)
+
