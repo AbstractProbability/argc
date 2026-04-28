@@ -1,7 +1,7 @@
 all:
 	gcc api.c -o api.out
-build:
+dev:
 	gcc api.c -o api.out -g
 run:
-	gcc api.c -o api.out
+	gcc api.c -o api.out -g
 	./api.out
