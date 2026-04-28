@@ -160,66 +160,67 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
 
     int numOtherArgs = 0;
     for (int i = 1; i<argc; i++) {
-        if (argv[i][0] == '-') {
-            int argLen = strlen(argv[i]);
-            int parameterLength = getParameterLength(
-                                    argv[i],
-                                    argLen
-                                );
-
-            if (parameterLength != 0) {
-                // parameterOption
-                char *parameter = argv[i] + argLen-parameterLength;
-
-                char *parameterOption = NULL;
-                getOptionStringFromOption(
-                    &parameterOption, argv[i],
-                    argLen, PARAMETER_OPTION, parameterLength
-                );
-
-                int valid = 0;
-                int parameterOptionIdx = findStringIdx(
-                                            at->parameterOptions,
-                                            at->numParameterOptions,
-                                            parameterOption
-                                        );
-                if (parameterOptionIdx >= 0) {
-                    valid = 1;
-                    at->parameters[parameterOptionIdx] = parameter;
-                }
-
-                if (!valid) {
-                    return UNKNOWN_PARAMETER_OPTION;
-                }
-
-                free(parameterOption);
-            } else {
-                // option
-                char *option = NULL;
-                getOptionStringFromOption(
-                    &option, argv[i],
-                    argLen, OPTION, parameterLength
-                );
-
-                int valid = 0;
-                int optionIdx = findStringIdx(
-                                            at->options,
-                                            at->numOptions,
-                                            option
-                                        );
-                if (optionIdx >= 0) {
-                    valid = 1;
-                    at->optionPresence[optionIdx] = 1;
-                }
-
-                if (!valid) {
-                    return UNKNOWN_OPTION;
-                }
-
-                free(option);
-            }
-        } else {
+        if (argv[i][0] != '-') {
             numOtherArgs++;
+            continue;
+        }
+
+        int argLen = strlen(argv[i]);
+        int parameterLength = getParameterLength(
+                                argv[i],
+                                argLen
+                            );
+
+        if (parameterLength != 0) {
+            // parameterOption
+            char *parameter = argv[i] + argLen-parameterLength;
+
+            char *parameterOption = NULL;
+            getOptionStringFromOption(
+                &parameterOption, argv[i],
+                argLen, PARAMETER_OPTION, parameterLength
+            );
+
+            int valid = 0;
+            int parameterOptionIdx = findStringIdx(
+                                        at->parameterOptions,
+                                        at->numParameterOptions,
+                                        parameterOption
+                                    );
+            if (parameterOptionIdx >= 0) {
+                valid = 1;
+                at->parameters[parameterOptionIdx] = parameter;
+            }
+
+            if (!valid) {
+                return UNKNOWN_PARAMETER_OPTION;
+            }
+
+            free(parameterOption);
+        } else {
+            // option
+            char *option = NULL;
+            getOptionStringFromOption(
+                &option, argv[i],
+                argLen, OPTION, parameterLength
+            );
+
+            int valid = 0;
+            int optionIdx = findStringIdx(
+                                        at->options,
+                                        at->numOptions,
+                                        option
+                                    );
+            if (optionIdx >= 0) {
+                valid = 1;
+                at->optionPresence[optionIdx] = 1;
+            }
+
+            if (!valid) {
+                return UNKNOWN_OPTION;
+            }
+
+            free(option);
         }
     }
 
