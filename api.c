@@ -28,25 +28,29 @@ typedef enum OptionType {
 } OptionType;
 
 void
-copy_array_of_strings(char ***dst, char ***src, int numStrings)
+copyArrayOfStrings(char ***dst, char ***src, int numStrings)
 {
     *dst = malloc(sizeof(char *) * numStrings);
     for (int i = 0; i<numStrings; i++) {
-        int stringLength = strlen((*src)[i]);
-        (*dst)[i] = malloc(sizeof(char *) * (stringLength+1));
-        for (int j = 0; j<stringLength; j++) {
-            (*dst)[i][j] = (*src)[i][j];
+        if ((*src)[i] != NULL) {
+            int argLen = strlen((*src)[i]);
+            (*dst)[i] = malloc(sizeof(char *) * (argLen+1));
+            strcpy((*dst)[i], (*src)[i]);
+        } else {
+            (*dst)[i] = NULL;
         }
     }
 }
 
 void
-init_arg_template(
+initArgTemplate(
     ArgTemplate *at,
     char *programName,
+
     int numOptions,
     char **options,
     int *optionPresence,
+
     int numParameterOptions,
     char **parameterOptions,
     char **parameters
@@ -56,7 +60,7 @@ init_arg_template(
 
     at->numOptions = numOptions;
     if (numOptions != 0) {
-        copy_array_of_strings(&at->options, &options, numOptions);
+        copyArrayOfStrings(&at->options, &options, numOptions);
 
         at->optionPresence = malloc(sizeof(int) * numOptions);
         if (optionPresence != NULL) {
@@ -75,21 +79,21 @@ init_arg_template(
 
     at->numParameterOptions = numParameterOptions;
     if (numParameterOptions != 0) {
-        copy_array_of_strings(&at->parameterOptions, &parameterOptions,
+        copyArrayOfStrings(&at->parameterOptions, &parameterOptions,
             numParameterOptions);
 
         if (parameters != NULL) {
-            copy_array_of_strings(&at->parameters, &parameters,
+            copyArrayOfStrings(&at->parameters, &parameters,
                 numParameterOptions);
         } else {
+            at->parameters = malloc(sizeof(char *) * numParameterOptions);
             for (int i = 0; i<numParameterOptions; i++) {
-                at->parameterOptions[i] = NULL;
+                at->parameters[i] = NULL;
             }
         }
     } else {
         at->parameterOptions = NULL;
         at->parameters = NULL;
-
     }
 
     at->numOtherArgs = 0;
@@ -98,15 +102,15 @@ init_arg_template(
 
 // if this returns 0, that means the option was not a parameterOption
 // Otherwise, returns the length of the parameter in the arg string
-// The parameter can be extracted as
+// The parameter can be extracted at
 // parameterString = (option+(optionLength-retval));
 int
-parameterLengthExtractor(char *arg, int argLength)
+getParameterLength(char *arg, int argLen)
 {
     int parameterLength = 0;
-    for (int j = 0; j<argLength; j++) {
+    for (int j = 0; j<argLen; j++) {
         if (arg[j] == '=') {
-            parameterLength = argLength - j - 1;
+            parameterLength = argLen - j - 1;
             break;
         }
     }
@@ -114,11 +118,11 @@ parameterLengthExtractor(char *arg, int argLength)
 }
 
 void
-get_string_from_option(
+getOptionStringFromOption(
     char **dst, char *src, int srcLen, OptionType type, int paramLen)
 {
-    int offset;
-    if (type == 0) {
+    int offset; // due to '=' in the argument
+    if (type == OPTION) {
         // option
         offset = 0;
         paramLen = 0;
@@ -132,87 +136,101 @@ get_string_from_option(
     strncpy((*dst), src+1, srcLen-paramLen-1-offset);
 }
 
+int
+findStringIdx(char **array, int arrayLen, char *string) {
+    if (array == NULL || string == NULL) {
+        return -1;
+    }
+
+    for (int i = 0; i<arrayLen; i++) {
+        if (array[i] != NULL && strcmp(array[i], string) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 ArgError
-parse_args(ArgTemplate *at, ArgTemplate *as, int argc, char *argv[])
+parseArgs(ArgTemplate *at, int argc, char *argv[])
 {
     if (strcmp(argv[0], at->programName) != 0) {
         return WRONG_PROGRAM_NAME;
     }
 
     int numOtherArgs = 0;
-    init_arg_template(
-        as,
-        at->programName,
-        at->numOptions,
-        at->options,
-        at->optionPresence,
-        at->numParameterOptions,
-        at->parameterOptions,
-        at->parameters
-    );
-
     for (int i = 1; i<argc; i++) {
         if (argv[i][0] == '-') {
-            int stringLength = strlen(argv[i]);
-            int parameterLength = parameterLengthExtractor(argv[i],
-                                    stringLength);
+            int argLen = strlen(argv[i]);
+            int parameterLength = getParameterLength(
+                                    argv[i],
+                                    argLen
+                                );
 
             if (parameterLength != 0) {
                 // parameterOption
-                char *parameter = argv[i] + 1 + stringLength-parameterLength;
+                char *parameter = argv[i] + argLen-parameterLength;
 
                 char *parameterOption = NULL;
-                get_string_from_option(
+                getOptionStringFromOption(
                     &parameterOption, argv[i],
-                    stringLength, PARAMETER_OPTION, parameterLength
+                    argLen, PARAMETER_OPTION, parameterLength
                 );
 
                 int valid = 0;
-                for (int j = 0; j<at->numParameterOptions; j++) {
-                    if (strcmp(at->parameterOptions[j], parameterOption) == 0) {
-                        as->parameters[j] = parameter;
-                        valid = 1;
-                        break;
-                    }
+                int parameterOptionIdx = findStringIdx(
+                                            at->parameterOptions,
+                                            at->numParameterOptions,
+                                            parameterOption
+                                        );
+                if (parameterOptionIdx >= 0) {
+                    valid = 1;
+                    at->parameters[parameterOptionIdx] = parameter;
                 }
 
                 if (!valid) {
                     return UNKNOWN_PARAMETER_OPTION;
                 }
+
+                free(parameterOption);
             } else {
                 // option
                 char *option = NULL;
-                get_string_from_option(
+                getOptionStringFromOption(
                     &option, argv[i],
-                    stringLength, OPTION, parameterLength
+                    argLen, OPTION, parameterLength
                 );
 
                 int valid = 0;
-                for (int j = 0; j<at->numOptions; j++) {
-                    if (strcmp(at->options[j], option) == 0) {
-                        as->optionPresence[j] = 1;
-                        valid = 1;
-                        break;
-                    }
+                int optionIdx = findStringIdx(
+                                            at->options,
+                                            at->numOptions,
+                                            option
+                                        );
+                if (optionIdx >= 0) {
+                    valid = 1;
+                    at->optionPresence[optionIdx] = 1;
                 }
 
                 if (!valid) {
                     return UNKNOWN_OPTION;
                 }
+
+                free(option);
             }
         } else {
             numOtherArgs++;
         }
     }
 
-    as->numOtherArgs = numOtherArgs;
-    as->otherArgs = malloc(sizeof(char *) * numOtherArgs);
+    at->numOtherArgs = numOtherArgs;
+    at->otherArgs = malloc(sizeof(char *) * numOtherArgs);
     int otherArgIdx = 0;
     for (int i = 1; i<argc; i++) {
         if (argv[i][0] != '-') {
-            int otherArgLen = strlen(argv[i]);
-            as->otherArgs[otherArgIdx] = malloc(sizeof(char) * (otherArgLen));
-            strcpy(as->otherArgs[otherArgIdx], argv[i]);
+            int argLen = strlen(argv[i]);
+            at->otherArgs[otherArgIdx] = malloc(sizeof(char) * (argLen));
+            strcpy(at->otherArgs[otherArgIdx], argv[i]);
             otherArgIdx++;
         }
     }
@@ -220,7 +238,7 @@ parse_args(ArgTemplate *at, ArgTemplate *as, int argc, char *argv[])
 }
 
 int main(int argc, char *argv[]) {
-    ArgTemplate at, as;
+    ArgTemplate at;
     char **options = malloc(sizeof(char *) * 2);
     options[0] = malloc(sizeof(char) * 4);
     options[1] = malloc(sizeof(char) * 5);
@@ -232,21 +250,23 @@ int main(int argc, char *argv[]) {
     parameterOptions[1] = malloc(sizeof(char) * 5);
     parameterOptions[2] = malloc(sizeof(char) * 3);
     strcpy(parameterOptions[0], "po1");
-    strcpy(parameterOptions[0], "poo2");
-    strcpy(parameterOptions[0], "po3");
+    strcpy(parameterOptions[1], "poo2");
+    strcpy(parameterOptions[2], "p3");
 
-    init_arg_template(
+    initArgTemplate(
         &at,
         argv[0],
+
         2,
         options,
         NULL,
+
         3,
         parameterOptions,
         NULL
     );
 
-    printf("---init_arg_template_test---\n");
+    printf("---initArgTemplate_test---\n");
     printf("numOptions : %d\n", at.numOptions);
     if (at.options == NULL) {
         printf("OPTIONS IS NULL\n");
@@ -260,27 +280,33 @@ int main(int argc, char *argv[]) {
     if (at.parameterOptions == NULL) {
         printf("PARAMETER_OPTIONS IS NULL\n");
     } else {
-        for (int i = 0; i<at.numOptions; i++) {
+        for (int i = 0; i<at.numParameterOptions; i++) {
             printf("parameterOption %d : %s\n", i+1, at.parameterOptions[i]);
         }
     }
 
-    int error = parse_args(&at, &as, argc, argv);
+    int error = parseArgs(&at, argc, argv);
 
-    printf("---parse_args_test---\n");
+
+    printf("---parseArgs_test---\n");
+
+    printf("numOptions : %d\n", at.numOptions);
+    printf("numParameterOptions : %d\n", at.numParameterOptions);
+    printf("numOtherArgs : %d\n", at.numOtherArgs);
+
     if (error != NONE) {
         printf("Error: %d\n", error);
         return 0;
     }
 
-    for (int i = 0; i<as.numOptions; i++) {
-        printf("Option: %s, presence: %d\n", as.options[i], as.optionPresence[i]);
+    for (int i = 0; i<at.numOptions; i++) {
+        printf("Option: %s, presence: %d\n", at.options[i], at.optionPresence[i]);
     }
-    for (int i = 0; i<as.numParameterOptions; i++) {
-        printf("parameterOption: %s, value: %s\n", as.parameterOptions[i], as.parameters[i] != NULL ? as.parameters[i] : "-");
+    for (int i = 0; i<at.numParameterOptions; i++) {
+        printf("parameterOption: %s, value: %s\n", at.parameterOptions[i], at.parameters[i] != NULL ? at.parameters[i] : "-");
     }
-    for (int i = 0; i<as.numOtherArgs; i++) {
-        printf("otherArgs: %s\n", as.otherArgs[i]);
+    for (int i = 0; i<at.numOtherArgs; i++) {
+        printf("otherArgs: %s\n", at.otherArgs[i]);
     }
 
     return 0;

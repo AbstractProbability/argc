@@ -9,3 +9,4 @@ Immediate:
 2. Ergonomics: user cannot use the library without much malloc boilerplate, how to reduce this
     - E.g. user has to make an HEAP array of args and pass it, instead can they just pass it normally inline
 3. Tests for parse_args
+    - Currently parameterOptions are not working properly, the parameter options are not being recognised.
