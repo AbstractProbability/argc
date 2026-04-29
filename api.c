@@ -283,7 +283,48 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
     return NONE;
 }
 
-int main(int argc, char *argv[]) {
+int
+checkOptionPresence(ArgTemplate *at, char *option)
+{
+    if (at->options == NULL || option == NULL) {
+        return 0;
+    }
+
+    for (int i = 0; i<at->numOptions; i++) {
+        if (at->options[i] != NULL
+            && strcmp(at->options[i], option) == 0) {
+            if (at->optionPresence[i] != 0) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    }
+
+    return 0;
+}
+
+char *
+getParameter(ArgTemplate *at, char *parameterOption)
+{
+    if (at->parameterOptions == NULL || parameterOption == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i<at->numParameterOptions; i++) {
+        if (at->parameterOptions[i] != NULL
+            && strcmp(at->parameterOptions[i], parameterOption) == 0) {
+
+            return at->parameters[i];
+        }
+    }
+
+    return NULL;
+}
+
+int
+main(int argc, char *argv[])
+{
     ArgTemplate at;
     char **options = malloc(sizeof(char *) * 2);
     options[0] = malloc(sizeof(char) * 4);
