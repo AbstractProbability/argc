@@ -34,7 +34,7 @@ copyArrayOfStrings(char ***dst, char ***src, int numStrings)
     for (int i = 0; i<numStrings; i++) {
         if ((*src)[i] != NULL) {
             int argLen = strlen((*src)[i]);
-            (*dst)[i] = malloc(sizeof(char *) * (argLen+1));
+            (*dst)[i] = malloc(sizeof(char) * (argLen+1));
             strcpy((*dst)[i], (*src)[i]);
         } else {
             (*dst)[i] = NULL;
@@ -56,7 +56,9 @@ initArgTemplate(
     char **parameters
 )
 {
-    at->programName = programName;
+    int programNameLen = strlen(programName);
+    at->programName = malloc(sizeof(char) * (programNameLen+1));
+    strcpy(at->programName, programName);
 
     at->numOptions = numOptions;
     if (numOptions != 0) {
@@ -100,6 +102,44 @@ initArgTemplate(
     at->otherArgs = NULL;
 }
 
+void
+freeNullSafe(void *pointer)
+{
+    if (pointer != NULL) {
+        free(pointer);
+    }
+}
+
+void
+freeArrayOfStringsNullSafe(char **array, int numElements)
+{
+    if (array == NULL) {
+        return;
+    }
+
+    for (int i = 0; i<numElements; i++) {
+        freeNullSafe(array[i]);
+    }
+}
+
+void
+freeArgTemplate(ArgTemplate *at)
+{
+    freeNullSafe(at->programName);
+
+    freeArrayOfStringsNullSafe(at->options, at->numOptions);
+    freeNullSafe(at->options);
+    freeNullSafe(at->optionPresence);
+
+    freeArrayOfStringsNullSafe(at->parameterOptions, at->numParameterOptions);
+    freeArrayOfStringsNullSafe(at->parameters, at->numParameterOptions);
+    freeNullSafe(at->parameterOptions);
+    freeNullSafe(at->parameters);
+
+    freeArrayOfStringsNullSafe(at->otherArgs, at->numOtherArgs);
+    freeNullSafe(at->otherArgs);
+}
+
 // if this returns 0, that means the option was not a parameterOption
 // Otherwise, returns the length of the parameter in the arg string
 // The parameter can be extracted at
@@ -131,7 +171,7 @@ getOptionStringFromOption(
         offset = 1;
     }
 
-    *dst = malloc(sizeof(char) * srcLen-paramLen-offset);
+    *dst = malloc(sizeof(char) * (srcLen-paramLen-offset));
     (*dst)[srcLen-paramLen-1-offset] = '\0';
     strncpy((*dst), src+1, srcLen-paramLen-1-offset);
 }
@@ -173,7 +213,8 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
 
         if (parameterLength != 0) {
             // parameterOption
-            char *parameter = argv[i] + argLen-parameterLength;
+            char *parameter = malloc(sizeof(char) * (parameterLength+1));
+            strcpy(parameter, argv[i] + argLen-parameterLength);
 
             char *parameterOption = NULL;
             getOptionStringFromOption(
@@ -193,10 +234,13 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
             }
 
             if (!valid) {
+                freeNullSafe(parameter);
+                freeNullSafe(parameterOption);
                 return UNKNOWN_PARAMETER_OPTION;
             }
 
-            free(parameterOption);
+            freeNullSafe(parameter);
+            freeNullSafe(parameterOption);
         } else {
             // option
             char *option = NULL;
@@ -217,10 +261,11 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
             }
 
             if (!valid) {
+                freeNullSafe(option);
                 return UNKNOWN_OPTION;
             }
 
-            free(option);
+            freeNullSafe(option);
         }
     }
 
@@ -230,7 +275,7 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
     for (int i = 1; i<argc; i++) {
         if (argv[i][0] != '-') {
             int argLen = strlen(argv[i]);
-            at->otherArgs[otherArgIdx] = malloc(sizeof(char) * (argLen));
+            at->otherArgs[otherArgIdx] = malloc(sizeof(char) * (argLen+1));
             strcpy(at->otherArgs[otherArgIdx], argv[i]);
             otherArgIdx++;
         }
@@ -267,7 +312,7 @@ int main(int argc, char *argv[]) {
         NULL
     );
 
-    printf("---initArgTemplate_test---\n");
+    printf("---initArgTemplate test---\n");
     printf("numOptions : %d\n", at.numOptions);
     if (at.options == NULL) {
         printf("OPTIONS IS NULL\n");
@@ -288,8 +333,7 @@ int main(int argc, char *argv[]) {
 
     int error = parseArgs(&at, argc, argv);
 
-
-    printf("---parseArgs_test---\n");
+    printf("---parseArgs test---\n");
 
     printf("numOptions : %d\n", at.numOptions);
     printf("numParameterOptions : %d\n", at.numParameterOptions);
@@ -309,6 +353,9 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i<at.numOtherArgs; i++) {
         printf("otherArgs: %s\n", at.otherArgs[i]);
     }
+
+    printf("---freeArgTemplate test---\n");
+    freeArgTemplate(&at);
 
     return 0;
 }

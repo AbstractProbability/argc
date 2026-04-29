@@ -1,5 +1,5 @@
-all:
-	gcc api.c -o api.out
+build:
+	gcc -O3 api.c -o api.out
 dev:
 	gcc api.c -o api.out -g
 run:
