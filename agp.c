@@ -1,38 +1,13 @@
-#include <error.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "agp.h"
 
-/* Main struct for parsing arguments
- * NOTE: do not free/write any datato any of the pointers within
- * this struct. This struct must only be interacted with using the
- * api functions, or as a read-only struct
- */
-typedef struct ArgTemplate {
-    char *programName;
-    int numOptions;
-    char **options;
-    int *optionPresence;        // boolean array
-    int numParameterOptions;
-    char **parameterOptions;
-    char **parameters;
-    int numOtherArgs;
-    char **otherArgs;
-} ArgTemplate;
-
-typedef enum ArgError {
-    NONE,
-    WRONG_PROGRAM_NAME,
-    UNKNOWN_OPTION,
-    UNKNOWN_PARAMETER_OPTION
-} ArgError;
-
-typedef enum OptionType {
+/* Types of options (i.e. arguments prefixed by '-' */
+typedef enum agp_OptionType {
     OPTION,
     PARAMETER_OPTION
-} OptionType;
+} agp_OptionType;
 
-void
+/* --- PRIVATE --- */
+static void
 copyArrayOfStrings(char ***dst, char ***src, int numStrings)
 {
     *dst = malloc(sizeof(char *) * numStrings);
@@ -47,9 +22,91 @@ copyArrayOfStrings(char ***dst, char ***src, int numStrings)
     }
 }
 
+static void
+freeNullSafe(void *pointer)
+{
+    if (pointer != NULL) {
+        free(pointer);
+    }
+}
+
+static void
+freeArrayOfStringsNullSafe(char **array, int numElements)
+{
+    if (array == NULL) {
+        return;
+    }
+
+    for (int i = 0; i<numElements; i++) {
+        freeNullSafe(array[i]);
+    }
+}
+
+static void
+printfreed(char *freed)
+{
+    printf("[DEBUG] %s freed!\n", freed);
+}
+
+static void
+getOptionStringFromOption(
+    char **dst, char *src, int srcLen, agp_OptionType type, int paramLen)
+{
+    int offset; // due to '=' in the argument
+    if (type == OPTION) {
+        // option
+        offset = 0;
+        paramLen = 0;
+    } else {
+        // parameterOption
+        offset = 1;
+    }
+
+    *dst = malloc(sizeof(char) * (srcLen-paramLen-offset));
+    (*dst)[srcLen-paramLen-1-offset] = '\0';
+    strncpy((*dst), src+1, srcLen-paramLen-1-offset);
+}
+
+static int
+findStringIdx(char **array, int arrayLen, char *string) {
+    if (array == NULL || string == NULL) {
+        return -1;
+    }
+
+    for (int i = 0; i<arrayLen; i++) {
+        if (array[i] != NULL && strcmp(array[i], string) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/* if this returns 0, that means the option was not a parameterOption
+ * Otherwise, returns the length of the parameter in the arg string.
+ * So if a bad parameter was passed in, like '-pm=', it is detected
+ * as an 'option' instead of a parameter option
+ * The parameter can be extracted at
+ * parameterString = (option+(optionLength-retval));
+ */
+static int
+getParameterLength(char *arg, int argLen)
+{
+    int parameterLength = 0;
+    for (int j = 0; j<argLen; j++) {
+        if (arg[j] == '=') {
+            parameterLength = argLen - j - 1;
+            break;
+        }
+    }
+    return parameterLength;
+}
+
+/* --- PUBLIC --- */
+
 void
-initArgTemplate(
-    ArgTemplate *at,
+agp_initArgTemplate(
+    agp_ArgTemplate *at,
     char *programName,
 
     int numOptions,
@@ -107,38 +164,12 @@ initArgTemplate(
     at->otherArgs = NULL;
 }
 
-void
-freeNullSafe(void *pointer)
-{
-    if (pointer != NULL) {
-        free(pointer);
-    }
-}
-
-void
-freeArrayOfStringsNullSafe(char **array, int numElements)
-{
-    if (array == NULL) {
-        return;
-    }
-
-    for (int i = 0; i<numElements; i++) {
-        freeNullSafe(array[i]);
-    }
-}
-
-void
-printfreed(char *freed)
-{
-    printf("[DEBUG] %s freed!\n", freed);
-}
-
-/* Never free anything inside an ArgTemplate, use this function
- * to free everything inside an ArgTemplate. ArgTemplate is designed
+/* Never free anything inside an agp_ArgTemplate, use this function
+ * to free everything inside an agp_ArgTemplate. agp_ArgTemplate is designed
  * to be a read-only struct
  */
 void
-freeArgTemplate(ArgTemplate *at)
+agp_freeArgTemplate(agp_ArgTemplate *at)
 {
     freeNullSafe(at->programName);
 
@@ -155,59 +186,8 @@ freeArgTemplate(ArgTemplate *at)
     freeNullSafe(at->otherArgs);
 }
 
-// if this returns 0, that means the option was not a parameterOption
-// Otherwise, returns the length of the parameter in the arg string
-// The parameter can be extracted at
-// parameterString = (option+(optionLength-retval));
-int
-getParameterLength(char *arg, int argLen)
-{
-    int parameterLength = 0;
-    for (int j = 0; j<argLen; j++) {
-        if (arg[j] == '=') {
-            parameterLength = argLen - j - 1;
-            break;
-        }
-    }
-    return parameterLength;
-}
-
-void
-getOptionStringFromOption(
-    char **dst, char *src, int srcLen, OptionType type, int paramLen)
-{
-    int offset; // due to '=' in the argument
-    if (type == OPTION) {
-        // option
-        offset = 0;
-        paramLen = 0;
-    } else {
-        // parameterOption
-        offset = 1;
-    }
-
-    *dst = malloc(sizeof(char) * (srcLen-paramLen-offset));
-    (*dst)[srcLen-paramLen-1-offset] = '\0';
-    strncpy((*dst), src+1, srcLen-paramLen-1-offset);
-}
-
-int
-findStringIdx(char **array, int arrayLen, char *string) {
-    if (array == NULL || string == NULL) {
-        return -1;
-    }
-
-    for (int i = 0; i<arrayLen; i++) {
-        if (array[i] != NULL && strcmp(array[i], string) == 0) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-ArgError
-parseArgs(ArgTemplate *at, int argc, char *argv[])
+agp_ArgError
+agp_parseArgs(agp_ArgTemplate *at, int argc, char *argv[])
 {
     if (strcmp(argv[0], at->programName) != 0) {
         return WRONG_PROGRAM_NAME;
@@ -300,7 +280,7 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
 }
 
 int
-checkOptionPresence(ArgTemplate *at, char *option)
+agp_checkOptionPresence(agp_ArgTemplate *at, char *option)
 {
     if (at->options == NULL || option == NULL) {
         return 0;
@@ -321,7 +301,7 @@ checkOptionPresence(ArgTemplate *at, char *option)
 }
 
 char *
-getParameter(ArgTemplate *at, char *parameterOption)
+agp_getParameter(agp_ArgTemplate *at, char *parameterOption)
 {
     if (at->parameterOptions == NULL || parameterOption == NULL) {
         return NULL;
@@ -336,73 +316,4 @@ getParameter(ArgTemplate *at, char *parameterOption)
     }
 
     return NULL;
-}
-
-int
-main(int argc, char *argv[])
-{
-    ArgTemplate at;
-    char *options[2] = {"lol", "lmao"};
-    char *parameterOptions[3] = {"po1", "poo2", "p3"};
-
-    initArgTemplate(
-        &at,
-        argv[0],
-
-        2,
-        options,
-        NULL,
-
-        3,
-        parameterOptions,
-        NULL
-    );
-
-    printf("---initArgTemplate test---\n");
-    printf("numOptions : %d\n", at.numOptions);
-    if (at.options == NULL) {
-        printf("OPTIONS IS NULL\n");
-    } else {
-        for (int i = 0; i<at.numOptions; i++) {
-            printf("Option %d : %s\n", i+1, at.options[i]);
-        }
-    }
-
-    printf("numParameterOptions : %d\n", at.numParameterOptions);
-    if (at.parameterOptions == NULL) {
-        printf("PARAMETER_OPTIONS IS NULL\n");
-    } else {
-        for (int i = 0; i<at.numParameterOptions; i++) {
-            printf("parameterOption %d : %s\n", i+1, at.parameterOptions[i]);
-        }
-    }
-
-    int error = parseArgs(&at, argc, argv);
-
-    printf("---parseArgs test---\n");
-
-    printf("numOptions : %d\n", at.numOptions);
-    printf("numParameterOptions : %d\n", at.numParameterOptions);
-    printf("numOtherArgs : %d\n", at.numOtherArgs);
-
-    if (error != NONE) {
-        printf("Error: %d\n", error);
-        return 0;
-    }
-
-    for (int i = 0; i<at.numOptions; i++) {
-        printf("Option: %s, presence: %d\n", at.options[i], at.optionPresence[i]);
-    }
-    for (int i = 0; i<at.numParameterOptions; i++) {
-        printf("parameterOption: %s, value: %s\n", at.parameterOptions[i], at.parameters[i] != NULL ? at.parameters[i] : "-");
-    }
-    for (int i = 0; i<at.numOtherArgs; i++) {
-        printf("otherArgs: %s\n", at.otherArgs[i]);
-    }
-
-    printf("---freeArgTemplate test---\n");
-    freeArgTemplate(&at);
-    printf("freeArgTemplate worked!\n");
-
-    return 0;
 }
