@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Main struct for parsing arguments
+ * NOTE: do not free/write any datato any of the pointers within
+ * this struct. This struct must only be interacted with using the
+ * api functions, or as a read-only struct
+ */
 typedef struct ArgTemplate {
     char *programName;
     int numOptions;
@@ -123,6 +128,16 @@ freeArrayOfStringsNullSafe(char **array, int numElements)
 }
 
 void
+printfreed(char *freed)
+{
+    printf("[DEBUG] %s freed!\n", freed);
+}
+
+/* Never free anything inside an ArgTemplate, use this function
+ * to free everything inside an ArgTemplate. ArgTemplate is designed
+ * to be a read-only struct
+ */
+void
 freeArgTemplate(ArgTemplate *at)
 {
     freeNullSafe(at->programName);
@@ -234,12 +249,10 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
             }
 
             if (!valid) {
-                freeNullSafe(parameter);
                 freeNullSafe(parameterOption);
                 return UNKNOWN_PARAMETER_OPTION;
             }
 
-            freeNullSafe(parameter);
             freeNullSafe(parameterOption);
         } else {
             // option
@@ -326,19 +339,8 @@ int
 main(int argc, char *argv[])
 {
     ArgTemplate at;
-    char **options = malloc(sizeof(char *) * 2);
-    options[0] = malloc(sizeof(char) * 4);
-    options[1] = malloc(sizeof(char) * 5);
-    strcpy(options[0], "lol");
-    strcpy(options[1], "lmao");
-
-    char **parameterOptions = malloc(sizeof(char *) * 3);
-    parameterOptions[0] = malloc(sizeof(char) * 4);
-    parameterOptions[1] = malloc(sizeof(char) * 5);
-    parameterOptions[2] = malloc(sizeof(char) * 3);
-    strcpy(parameterOptions[0], "po1");
-    strcpy(parameterOptions[1], "poo2");
-    strcpy(parameterOptions[2], "p3");
+    char *options[2] = {"lol", "lmao"};
+    char *parameterOptions[3] = {"po1", "poo2", "p3"};
 
     initArgTemplate(
         &at,
@@ -397,6 +399,7 @@ main(int argc, char *argv[])
 
     printf("---freeArgTemplate test---\n");
     freeArgTemplate(&at);
+    printf("freeArgTemplate worked!\n");
 
     return 0;
 }

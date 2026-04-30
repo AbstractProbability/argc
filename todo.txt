@@ -4,9 +4,16 @@
 4. Mapping between short and long options, automatic short options generator, normaliser (short and long options for the same things must be normalised into the same longOption)
 
 
+[V1 FEATURE COMPLETE!]
 Immediate:
-0. Refactor
-1. Tests
-2. Ergonomics: user cannot use the library without much malloc boilerplate, how to reduce this
+0. Ergonomics
+1. Library creation:
+    - prefixing
+    - .h, .c files separation, compile instructions
+    - Documentation
+2. Refactor
+3. Tests
+4. Ergonomics: user cannot use the library without much malloc boilerplate, how to reduce this
     - E.g. user has to make an HEAP array of args and pass it, instead can they just pass it normally inline
     - Make this into an actual api with header, impl files
+5. Documentation
