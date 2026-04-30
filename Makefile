@@ -8,6 +8,3 @@ dev:
 	ar rcs bin/libagp.a bin/agp.out
 	gcc -g -c -fPIC agp.c -o bin/agp.out
 	gcc -shared -o bin/libagp.so bin/agp.out
-run:
-	gcc api.c -o api.out -g
-	./api.out
