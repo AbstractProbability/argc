@@ -249,10 +249,13 @@ parseArgs(ArgTemplate *at, int argc, char *argv[])
             }
 
             if (!valid) {
+                freeNullSafe(parameter);
                 freeNullSafe(parameterOption);
                 return UNKNOWN_PARAMETER_OPTION;
             }
 
+            // do not freeNullSafe(parameter) here. The parameter is a valid
+            // pointer, and is being used inside `at`.
             freeNullSafe(parameterOption);
         } else {
             // option
