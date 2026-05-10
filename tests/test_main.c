@@ -3,11 +3,11 @@
 int
 main(int argc, char *argv[])
 {
-    agp_ArgTemplate at;
+    argc_ArgTemplate at;
     char *options[2] = {"lol", "lmao"};
     char *parameterOptions[3] = {"po1", "poo2", "p3"};
 
-    agp_initArgTemplate(
+    argc_initArgTemplate(
         &at,
         argv[0],
 
@@ -39,7 +39,7 @@ main(int argc, char *argv[])
         }
     }
 
-    int error = agp_parseArgs(&at, argc, argv);
+    int error = argc_parseArgs(&at, argc, argv);
 
     printf("---parseArgs test---\n");
 
@@ -63,7 +63,7 @@ main(int argc, char *argv[])
     }
 
     printf("---freeArgTemplate test---\n");
-    agp_freeArgTemplate(&at);
+    argc_freeArgTemplate(&at);
     printf("freeArgTemplate worked!\n");
 
     return 0;
