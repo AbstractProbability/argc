@@ -1,10 +1,10 @@
 #include "agp.h"
 
 /* Types of options (i.e. arguments prefixed by '-' */
-typedef enum agp_OptionType {
+typedef enum argc_OptionType {
     OPTION,
     PARAMETER_OPTION
-} agp_OptionType;
+} argc_OptionType;
 
 /* --- PRIVATE --- */
 static void
@@ -50,7 +50,7 @@ printfreed(char *freed)
 
 static void
 getOptionStringFromOption(
-    char **dst, char *src, int srcLen, agp_OptionType type, int paramLen)
+    char **dst, char *src, int srcLen, argc_OptionType type, int paramLen)
 {
     int offset; // due to '=' in the argument
     if (type == OPTION) {
@@ -105,8 +105,8 @@ getParameterLength(char *arg, int argLen)
 /* --- PUBLIC --- */
 
 void
-agp_initArgTemplate(
-    agp_ArgTemplate *at,
+argc_initArgTemplate(
+    argc_ArgTemplate *at,
     char *programName,
 
     int numOptions,
@@ -164,12 +164,12 @@ agp_initArgTemplate(
     at->otherArgs = NULL;
 }
 
-/* Never free anything inside an agp_ArgTemplate, use this function
- * to free everything inside an agp_ArgTemplate. agp_ArgTemplate is designed
+/* Never free anything inside an argc_ArgTemplate, use this function
+ * to free everything inside an argc_ArgTemplate. argc_ArgTemplate is designed
  * to be a read-only struct
  */
 void
-agp_freeArgTemplate(agp_ArgTemplate *at)
+argc_freeArgTemplate(argc_ArgTemplate *at)
 {
     freeNullSafe(at->programName);
 
@@ -186,8 +186,8 @@ agp_freeArgTemplate(agp_ArgTemplate *at)
     freeNullSafe(at->otherArgs);
 }
 
-agp_ArgError
-agp_parseArgs(agp_ArgTemplate *at, int argc, char *argv[])
+argc_ArgError
+argc_parseArgs(argc_ArgTemplate *at, int argc, char *argv[])
 {
     if (strcmp(argv[0], at->programName) != 0) {
         return WRONG_PROGRAM_NAME;
@@ -280,7 +280,7 @@ agp_parseArgs(agp_ArgTemplate *at, int argc, char *argv[])
 }
 
 int
-agp_checkOptionPresence(agp_ArgTemplate *at, char *option)
+argc_checkOptionPresence(argc_ArgTemplate *at, char *option)
 {
     if (at->options == NULL || option == NULL) {
         return 0;
@@ -301,7 +301,7 @@ agp_checkOptionPresence(agp_ArgTemplate *at, char *option)
 }
 
 char *
-agp_getParameter(agp_ArgTemplate *at, char *parameterOption)
+argc_getParameter(argc_ArgTemplate *at, char *parameterOption)
 {
     if (at->parameterOptions == NULL || parameterOption == NULL) {
         return NULL;
